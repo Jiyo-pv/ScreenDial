@@ -200,5 +200,5 @@ This project is for educational and development purposes.
 
 ## ✨ Author
 
-Developed by **[JIYO  P V]]**  
+Developed by ** JIYO  P V **  
 Django • Realtime Systems • WebRTC
