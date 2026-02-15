@@ -1,0 +1,1518 @@
+{% extends 'core/base.html' %}
+
+{% block title %}ScreenDial - {{ session.room_code }}{% endblock %}
+
+{% block content %}
+<style>
+    .chat-container {
+        flex: 1;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--card-bg);
+        /* Match container style */
+    }
+
+    .chat-log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        background-color: rgba(15, 23, 42, 0.4);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .message-wrapper {
+        display: flex;
+        flex-direction: column;
+        max-width: 80%;
+    }
+
+    .message-wrapper.own {
+        align-self: flex-end;
+        align-items: flex-end;
+    }
+
+    .message-wrapper.other {
+        align-self: flex-start;
+        align-items: flex-start;
+    }
+
+    .message-sender {
+        font-size: 0.75rem;
+        color: #aaa;
+        margin-bottom: 0.2rem;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+
+    .message-bubble {
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        position: relative;
+        word-wrap: break-word;
+        color: #fff;
+    }
+
+    .message-wrapper.own .message-bubble {
+        background: var(--primary-gradient);
+        border-bottom-right-radius: 2px;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .message-wrapper.other .message-bubble {
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-color);
+        border-bottom-left-radius: 2px;
+    }
+
+    .chat-input-area {
+        background-color: var(--input-bg);
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .chat-input-area input[type="text"] {
+        border: none !important;
+        background: transparent !important;
+        color: var(--text-color);
+        flex: 1;
+        outline: none;
+        padding: 0.5rem !important;
+        width: auto !important;
+        margin-bottom: 0 !important;
+        min-width: 0;
+    }
+
+    .chat-input-area button {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        flex-shrink: 0;
+    }
+
+    /* Command suggestions */
+    .suggestion-item {
+        background-color: #333;
+        padding: 0.5rem;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--secondary-color);
+        border-left: 3px solid var(--secondary-color);
+    }
+
+    /* Room code badge */
+    .room-code-badge {
+        background: var(--primary-gradient);
+        color: #fff;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 4px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        cursor: pointer;
+        transition: transform 0.2s;
+        user-select: all;
+    }
+
+    .room-code-badge:hover {
+        transform: scale(1.05);
+    }
+
+    /* Participants table */
+    .participants-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .participants-table th {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 2px solid var(--border-color);
+        color: #aaa;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .participants-table td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .participants-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .participants-table tr:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        color: #fff;
+        margin-right: 0.4rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-sm:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-sm:active {
+        transform: translateY(0);
+    }
+
+    .btn-accept {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .btn-reject {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .btn-kick {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .btn-hide {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .status-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .status-pending {
+        background-color: #ff9800;
+        color: #000;
+    }
+
+    .status-accepted {
+        background-color: #4caf50;
+        color: #fff;
+    }
+
+    /* Waiting overlay for pending guests */
+    .waiting-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .waiting-overlay h2 {
+        color: var(--secondary-color);
+        border: none;
+    }
+
+    .waiting-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #555;
+        border-top-color: var(--secondary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .toast {
+        background-color: #333;
+        color: #fff;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 250px;
+        max-width: 350px;
+        animation: slideInRight 0.3s ease-out;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .toast-success {
+        border-left-color: #4caf50;
+    }
+
+    .toast-error {
+        border-left-color: #f44336;
+    }
+
+    .toast-info {
+        border-left-color: #2196f3;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    /* Toggle Switch */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 20px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #444;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked+.slider {
+        background-color: var(--primary-color);
+    }
+
+    input:checked+.slider:before {
+        transform: translateX(20px);
+    }
+
+    /* Fullscreen Chat Overlay Logic */
+    @media screen {
+
+        #videoArea:fullscreen .chat-toggle-fs,
+        #videoArea:fullscreen #fullscreenBtn {
+            display: flex !important;
+            z-index: 2100 !important;
+        }
+
+        #fsChatOverlay {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 350px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: none;
+            flex-direction: column;
+            z-index: 2000;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        #fsChatOverlay.show {
+            display: flex;
+        }
+
+        .fs-chat-log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .fs-chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .fs-chat-input-area input {
+            flex: 1;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 0.6rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .fs-send-btn {
+            background: var(--primary-gradient);
+            border: none;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .fs-send-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .fs-send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Robost Audio Download Protection */
+        audio::-webkit-media-controls-download-button {
+            display: none !important;
+        }
+
+        audio::-internal-media-controls-download-button {
+            display: none !important;
+        }
+
+    }
+</style>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="sessionMainContainer"
+    style="background: var(--bg-color); height: 100vh; width: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; padding: 0.5rem; gap: 0.5rem; box-sizing: border-box;">
+
+    <!-- Top Area: Video and Chat -->
+    <!-- Top Area: Video and Chat -->
+    <div style="display: flex; flex: 1; min-height: 0; gap: 0.5rem; overflow: hidden;">
+        <!-- Video Area -->
+        <div class="container" id="videoArea"
+            style="margin-top: 0; padding: 0; flex: 7.5; display: flex; align-items: center; justify-content: center; background-color: #000; position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+
+            <!-- Fullscreen Toggle Button -->
+            <button id="fullscreenBtn" class="btn-sm"
+                style="position: absolute; top: 15px; right: 15px; display: none; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); border: 1px solid var(--border-color); z-index: 2100; padding: 0.6rem 1rem; font-size: 0.85rem;"
+                onclick="toggleFullscreen()">
+                ⛶ Fullscreen
+            </button>
+
+            <video id="remoteVideo" autoplay playsinline
+                style="width: 100%; height: 100%; object-fit: contain; display: none;"></video>
+
+            <!-- Chat Toggle (Only shown in fullscreen) -->
+            <button id="chatToggleFS" class="btn-sm chat-toggle-fs"
+                style="position: absolute; top: 15px; right: 125px; display: none; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); border: 1px solid var(--border-color); z-index: 2100; padding: 0.6rem 1rem; font-size: 0.85rem;"
+                onclick="toggleChatFS()">
+                💬 Chat Overlay
+            </button>
+
+            <!-- Fullscreen Chat Overlay -->
+            <div id="fsChatOverlay">
+                <div
+                    style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0;">Live Chat</h4>
+                    <button onclick="toggleChatFS()"
+                        style="background: none; border: none; color: #aaa; cursor: pointer;">✕</button>
+                </div>
+                <div id="fsChatLog" class="fs-chat-log"></div>
+                <div class="fs-chat-input-area">
+                    <input type="text" id="fsChatMessageInput" placeholder="Type a message...">
+                    <button onclick="sendFsMessage()" class="fs-send-btn">Send</button>
+                </div>
+                <!-- Fullscreen Audio Record -->
+                <div
+                    style="padding: 0 1rem 1rem 1rem; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                    <button id="fsRecordBtn" class="btn-sm"
+                        style="background: #ff5722; padding: 1rem; font-size: 0.85rem; border-radius: 12px; border: none; cursor: pointer; color: white; display: flex; align-items: center; gap: 0.5rem;">🎙️
+                        Hold to Record</button>
+                    <span id="fsTimerText"
+                        style="color: var(--primary-color); font-weight: bold; display: none; font-size: 0.9rem;">00:00</span>
+                </div>
+            </div>
+
+            {% if is_host %}
+            <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 2100;"
+                id="hostControls">
+                <button id="startShareBtn" class="btn" onclick="startScreenShare()">Start Screen Share</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Chat Sidebar -->
+        <div class="container chat-container" id="chatContainer"
+            style="flex: 2.5; min-width: 300px; padding: 0.75rem; border-radius: 12px; margin-top: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+            <h3
+                style="margin-bottom: 0.5rem; font-size: 1rem; color: var(--secondary-color); flex-shrink: 0; padding-left: 0.25rem;">
+                Session Chat</h3>
+
+            <div id="chatLog" class="chat-log"
+                style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.75rem;">
+                <!-- Messages go here -->
+            </div>
+
+            <div class="chat-input-area"
+                style="flex-shrink: 0; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 10px;">
+                <div style="display: flex; gap: 0.4rem; margin-bottom: 0.4rem;">
+                    <input type="text" id="chatMessageInput" placeholder="Message..."
+                        style="flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); padding: 0.4rem 0.6rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                    <button id="chatMessageSend" class="btn-sm"
+                        style="padding: 0.4rem 0.8rem; background: var(--primary-gradient); border-radius: 6px; font-size: 0.8rem;">Send</button>
+                </div>
+                <!-- Sidebar Audio Record -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                    <button id="sidebarRecordBtn" class="btn-sm"
+                        style="background: #ff5722; padding: 0.4rem; font-size: 0.75rem; border-radius: 6px; border: none; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 0.3rem; flex: 1;">🎙️
+                        Hold to Record</button>
+                    <span id="sidebarTimerText"
+                        style="color: var(--primary-color); font-weight: bold; display: none; font-size: 0.8rem;">00:00</span>
+                </div>
+                <div id="commandSuggestions" style="margin-top: 0.25rem; min-height: 15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Area: Participants & Session Info -->
+    <div class="container"
+        style="height: 160px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; margin-top: 0; border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.4);">
+        <div
+            style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <h3 style="margin: 0; color: var(--secondary-color); font-size: 0.9rem;">Management</h3>
+                <span style="color: #444; font-size: 0.8rem;">|</span>
+                <span style="font-size: 0.75rem; font-weight: 500; color: #888;">
+                    Participants: <span id="currentCount" style="color: white; font-weight: bold;">{{ current_count}}</span> / {{ session.max_participants }}
+                </span>
+                <div class="room-code-badge"
+                    style="padding: 0.2rem 0.6rem; font-size: 0.8rem; letter-spacing: 1px; margin-left: 0.25rem;"
+                    title="Click to copy">{{ room_code }}</div>
+            </div>
+            {% if is_host %}
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: #666;">
+                <span id="suggestionsStatus">Suggestions {{ session.is_suggestions_enabled|yesno:"ON,OFF" }}</span>
+                <label class="switch" style="width: 28px; height: 14px;">
+                    <input type="checkbox" id="suggestionsToggle" {{ session.is_suggestions_enabled|yesno:"checked" }}
+                        onclick="toggleSuggestions()">
+                    <span class="slider" style="border-radius: 14px;"></span>
+                </label>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; flex: 1; min-height: 0;">
+            <!-- Participants Table -->
+            <div
+                style="flex: 2; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(0,0,0,0.3);">
+                <table class="participants-table" id="participantsTable">
+                    <thead>
+                        <tr>
+                            <th style="font-size: 0.7rem; padding: 0.25rem 0.4rem;">Name</th>
+                            <th style="text-align: center; font-size: 0.7rem; padding: 0.25rem 0.4rem;">Status</th>
+                            {% if is_host %}<th style="text-align: right; font-size: 0.7rem; padding: 0.25rem 0.4rem;">
+                                Actions</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody id="participantsBody">
+                        {% for p in participants_list %}
+                        {% if p.status != 'rejected' and p.status != 'kicked' %}
+                        <tr id="participant-{{ p.user.username }}">
+                            <td style="font-weight: 500; font-size: 0.8rem; padding: 0.25rem 0.4rem;">
+                                {{ p.display_name }}
+                                {% if p.user == request.user %}
+                                <span style="color: #666; font-size: 0.7rem;">(You)</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center; padding: 0.25rem 0.4rem;">
+                                {% if p.status == 'pending' %}
+                                <span class="status-badge status-pending"
+                                    style="font-size: 0.65rem; padding: 0.05rem 0.3rem;">P</span>
+                                {% elif p.status == 'accepted' %}
+                                <span class="status-badge status-accepted"
+                                    style="font-size: 0.65rem; padding: 0.05rem 0.3rem;">A</span>
+                                {% endif %}
+                            </td>
+                            {% if is_host %}
+                            <td style="text-align: right; white-space: nowrap; padding: 0.25rem 0.4rem;">
+                                {% if p.status == 'pending' %}
+
+    {% if p.request_type == 'join_request' %}
+
+        <!-- ✅ Real join request → Show Accept + Reject -->
+
+        <button class="btn-sm btn-accept"
+            style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+            onclick="controlParticipant('{{ p.user.username }}', 'accept')"
+            title="Accept">✔</button>
+
+        <button class="btn-sm btn-reject"
+            style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+            onclick="controlParticipant('{{ p.user.username }}', 'reject')"
+            title="Reject">✖</button>
+
+    {% elif p.request_type == 'invite' %}
+
+        <!-- ✅ Invited user → NO Accept button -->
+
+        <span style="font-size: 0.7rem; opacity: 0.6;">
+            Invited
+        </span>
+
+    {% endif %}
+
+
+{% elif p.status == 'accepted' %}
+                                <button class="btn-sm btn-kick" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                                    onclick="controlParticipant('{{ p.user.username }}', 'kick')"
+                                    title="Kick">🚫</button>
+                                <button class="btn-sm btn-hide" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                                    onclick="toggleSharing('{{ p.user.username }}')" title="Hide Share">👁</button>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Host Add Tools -->
+            {% if is_host %}
+            <div
+                style="flex: 1; border-left: 1px solid var(--border-color); padding-left: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h4 style="margin: 0; color: var(--secondary-color); font-size: 0.8rem;">Invite</h4>
+                    <button class="btn-sm" style="background: #333; font-size: 0.6rem; padding: 0.1rem 0.3rem;"
+                        onclick="toggleAddMode()" id="addModeToggle">M</button>
+                </div>
+
+                <div id="selectAddMode" style="display: flex; flex-direction: column; gap: 0.3rem;">
+                    <select id="discoverableUserSelect"
+                        style="width: 100%; padding: 0.25rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color); font-size: 0.75rem;">
+                        <option value="">Select a user...</option>
+                        {% for user in discoverable_users %}
+                        <option value="{{ user.username }}">{{ user.username }}</option>
+                        {% empty %}
+                        <option value="" disabled>No users</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn-sm"
+                        style="padding: 0.25rem; font-size: 0.75rem; background: var(--primary-gradient); font-weight: 600; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                        onclick="addParticipantAction('select')">Invite</button>
+                </div>
+
+                <div id="typeAddMode" style="display: none; flex-direction: column; gap: 0.3rem;">
+                    <input type="text" id="addParticipantInput" placeholder="Enter username..."
+                        style="width: 100%; padding: 0.25rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color); font-size: 0.75rem;">
+                    <button class="btn-sm"
+                        style="padding: 0.25rem; font-size: 0.75rem; background: var(--primary-gradient); font-weight: 600; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                        onclick="addParticipantAction('type')">Invite</button>
+                </div>
+
+                <div style="border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-top: 0.5rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Share Session</span>
+                        <button class="btn-sm"
+                            style="padding: 0.35rem 0.75rem; font-size: 0.75rem; background: var(--primary-gradient); font-weight: 600; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; gap: 0.3rem;"
+                            onclick="toggleDiscoverability()">
+                            <span id="discoverabilityIcon">🌐</span>
+                            <span id="discoverabilityStatus">Visible</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if participant.status == 'pending' %}
+<div class="waiting-overlay" id="waitingOverlay">
+    <div class="waiting-spinner"></div>
+    <h2>Waiting for host to accept you...</h2>
+    <p style="color: #aaa;">Room Code: <strong>{{ room_code }}</strong></p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const roomCode = "{{ room_code }}";
+    const isHost = "{{ is_host|yesno:'true,false' }}" === "true";
+    const currentUser = "{{ request.user.username }}";
+    let localStream;
+    let peers = {}; // username -> RTCPeerConnection
+
+    // WebSocket Setup
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const chatSocket = new WebSocket(
+        protocol + window.location.host + '/ws/session/' + roomCode + '/'
+    );
+
+    chatSocket.onopen = function (e) {
+        console.log('WebSocket Connected');
+        chatSocket.send(JSON.stringify({ 'type': 'user_join' }));
+    };
+
+    chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+
+        if (data.type === 'chat_message') {
+            const isOwn = data.sender === currentUser;
+            const alignClass = isOwn ? 'own' : 'other';
+            const senderName = isOwn ? 'You' : data.sender;
+
+            let messageHtml = `
+                <div class="message-wrapper ${alignClass}">
+                    <div class="message-sender">${senderName}</div>
+                    <div class="message-bubble">${data.message}</div>
+                </div>
+            `;
+
+            document.querySelector('#chatLog').insertAdjacentHTML('beforeend', messageHtml);
+            document.querySelector('#chatLog').scrollTop = document.querySelector('#chatLog').scrollHeight;
+
+            if (document.querySelector('#fsChatLog')) {
+                document.querySelector('#fsChatLog').insertAdjacentHTML('beforeend', messageHtml);
+                document.querySelector('#fsChatLog').scrollTop = document.querySelector('#fsChatLog').scrollHeight;
+            }
+
+            if (data.suggestion) {
+                let suggestionHtml = `
+                    <div class="message-wrapper other">
+                        <div class="message-sender">System</div>
+                         <div class="message-bubble" style="background-color: #333; font-style: italic; color: var(--secondary-color);">
+                            ${data.suggestion}
+                        </div>
+                    </div>
+                `;
+                document.querySelector('#chatLog').insertAdjacentHTML('beforeend', suggestionHtml);
+                document.querySelector('#chatLog').scrollTop = document.querySelector('#chatLog').scrollHeight;
+                if (document.querySelector('#fsChatLog')) {
+                    document.querySelector('#fsChatLog').insertAdjacentHTML('beforeend', suggestionHtml);
+                    document.querySelector('#fsChatLog').scrollTop = document.querySelector('#fsChatLog').scrollHeight;
+                }
+            }
+
+            // Notification for Host
+            if (isHost && data.sender !== currentUser) {
+                showNotification(`New message from ${data.sender}`, data.message);
+            }
+        }
+        else if (data.type === 'user_join') {
+            if (data.username !== currentUser) {
+                // Update count if this is a new join (simplified check)
+                const countElem = document.getElementById('currentCount');
+                const existingRow = document.getElementById('participant-' + data.username);
+                if (countElem && !existingRow) {
+                    countElem.textContent = parseInt(countElem.textContent) + 1;
+                }
+
+                if (isHost) {
+                    showNotification("New Participant", `${data.username} joined the session.`);
+                    // Initiate WebRTC if we are sharing
+                    if (localStream) {
+                        createPeerConnection(data.username);
+                    }
+                    // Dynamic table update for host
+                    if (!existingRow) {
+                        renderParticipantRow(data.username, data.username, 'accepted');
+                    }
+                }
+            }
+        }
+        else if (data.type === 'audio_message') {
+            const isOwn = data.sender === currentUser;
+            const alignClass = isOwn ? 'own' : 'other';
+            const senderName = isOwn ? 'You' : data.sender;
+
+            let messageHtml = `
+                <div class="message-wrapper ${alignClass}">
+                    <div class="message-sender">${senderName}</div>
+                    <div class="message-bubble">
+                        <audio controls controlsList="nodownload" oncontextmenu="return false;" src="${data.content}" style="max-width: 200px; border-radius: 20px;"></audio>
+                    </div>
+                </div>
+            `;
+            document.querySelector('#chatLog').insertAdjacentHTML('beforeend', messageHtml);
+            document.querySelector('#chatLog').scrollTop = document.querySelector('#chatLog').scrollHeight;
+            if (document.querySelector('#fsChatLog')) {
+                document.querySelector('#fsChatLog').insertAdjacentHTML('beforeend', messageHtml);
+                document.querySelector('#fsChatLog').scrollTop = document.querySelector('#fsChatLog').scrollHeight;
+            }
+        }
+        else if (data.type === 'signal') {
+            handleSignal(data);
+        }
+        else if (data.type === 'participant_update') {
+            // Update current count display for everyone
+            const countElem = document.getElementById('currentCount');
+            if (countElem) {
+                if (data.action === 'kick' || data.action === 'reject') {
+                    countElem.textContent = parseInt(countElem.textContent) - 1;
+                } else if (data.action === 'added' || data.action === 'accept') {
+                    const existingRow = document.getElementById('participant-' + data.username);
+                    if (!existingRow) {
+                        countElem.textContent = parseInt(countElem.textContent) + 1;
+                    }
+                }
+            }
+
+            // Sync discoverable dropdown if host adds someone manually
+            if (isHost && data.action === 'added') {
+                const select = document.getElementById('discoverableUserSelect');
+                if (select) {
+                    const option = Array.from(select.options).find(opt => opt.value === data.username);
+                    if (option) option.remove();
+                }
+                // Add to table dynamically if not exists
+                const existingRow = document.getElementById('participant-' + data.username);
+                if (!existingRow) {
+                    renderParticipantRow(data.username, data.username, 'pending');
+                }
+            }
+
+            // Dynamic table updates for everyone
+            const row = document.getElementById('participant-' + data.username);
+            if (row) {
+                if (data.action === 'accept') {
+                    row.querySelector('td:nth-child(2)').innerHTML = '<span class="status-badge status-accepted" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;">A</span>';
+                    const actionsCell = row.querySelector('td:nth-child(3)');
+                    if (isHost && actionsCell) {
+                        actionsCell.innerHTML = `
+                            <button class="btn-sm btn-kick" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                                onclick="controlParticipant('${data.username}', 'kick')" title="Kick">🚫</button>
+                            <button class="btn-sm btn-hide" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;" 
+                                onclick="toggleSharing('${data.username}')" title="Hide Share">👁</button>
+                        `;
+                    }
+                } else if (data.action === 'kick' || data.action === 'reject') {
+                    row.remove();
+                }
+            } else if (data.action === 'added') {
+                renderParticipantRow(data.username, data.username, 'pending');
+            }
+
+            // Target user feedback
+            if (data.username === currentUser) {
+                if (data.action === 'accept') {
+                    const overlay = document.getElementById('waitingOverlay');
+                    if (overlay) overlay.remove();
+                } else if (data.action === 'reject' || data.action === 'kick') {
+                    alert('You have been ' + (data.action === 'kick' ? 'removed from' : 'rejected from') + ' the session.');
+                    window.location.href = '/';
+                }
+            }
+
+            // Sync discoverable dropdown if host adds someone manually
+            if (isHost && data.action === 'added') {
+                const select = document.getElementById('discoverableUserSelect');
+                if (select) {
+                    const option = Array.from(select.options).find(opt => opt.value === data.username);
+                    if (option) option.remove();
+                }
+            }
+
+            // Host side: Add user back to discoverable dropdown if they were kicked/rejected
+            if (isHost && (data.action === 'kick' || data.action === 'reject')) {
+                const select = document.getElementById('discoverableUserSelect');
+                if (select) {
+                    const option = document.createElement('option');
+                    option.value = data.username;
+                    option.textContent = data.username;
+                    select.appendChild(option);
+                    const placeholder = select.querySelector('option[disabled]');
+                    if (placeholder) placeholder.remove();
+                }
+            }
+        }
+    };
+
+    chatSocket.onclose = function (e) { console.error('Chat socket closed'); };
+
+    // --- Host Control Actions ---
+    function controlParticipant(username, action) {
+        const csrfToken = '{{ csrf_token }}';
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('username', username);
+
+        fetch(`/session/${roomCode}/control/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    // Notify via WebSocket so all clients update
+                    chatSocket.send(JSON.stringify({
+                        'type': 'participant_update',
+                        'username': username,
+                        'action': action
+                    }));
+                    // local table update is handled by the 'participant_update' socket message for consistency
+                } else {
+                    alert(data.error || 'Action failed.');
+                }
+            })
+            .catch(err => console.error('Control error:', err));
+    }
+
+    function renderParticipantRow(username, displayName, status) {
+        const body = document.getElementById('participantsBody');
+        if (!body) return;
+
+        // Prevent duplicates
+        if (document.getElementById('participant-' + username)) return;
+
+        const isMe = username === currentUser;
+        const statusText = status === 'pending' ? 'P' : 'A';
+        const statusClass = status === 'pending' ? 'status-pending' : 'status-accepted';
+
+        let actionHtml = '';
+        if (isHost && !isMe) {
+            if (status === 'pending') {
+                actionHtml = `
+                    <button class="btn-sm btn-accept" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                        onclick="controlParticipant('${username}', 'accept')" title="Accept">✔</button>
+                    <button class="btn-sm btn-reject" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                        onclick="controlParticipant('${username}', 'reject')" title="Reject">✖</button>
+                `;
+            } else if (status === 'accepted') {
+                actionHtml = `
+                    <button class="btn-sm btn-kick" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;"
+                        onclick="controlParticipant('${username}', 'kick')" title="Kick">🚫</button>
+                    <button class="btn-sm btn-hide" style="padding: 0.1rem 0.3rem; font-size: 0.7rem;" 
+                        onclick="toggleSharing('${username}')" title="Hide Share">👁</button>
+                `;
+            }
+        }
+
+        const rowHtml = `
+            <tr id="participant-${username}">
+                <td style="font-weight: 500; font-size: 0.8rem; padding: 0.25rem 0.4rem;">
+                    ${displayName}
+                    ${isMe ? '<span style="color: #666; font-size: 0.7rem;">(You)</span>' : ''}
+                </td>
+                <td style="text-align: center; padding: 0.25rem 0.4rem;">
+                    <span class="status-badge ${statusClass}" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;">${statusText}</span>
+                </td>
+                ${isHost ? `<td style="text-align: right; white-space: nowrap; padding: 0.25rem 0.4rem;">${actionHtml}</td>` : ''}
+            </tr>
+        `;
+        body.insertAdjacentHTML('beforeend', rowHtml);
+    }
+
+    // --- Toast Notifications ---
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        let icon = 'ℹ️';
+        if (type === 'success') icon = '✅';
+        if (type === 'error') icon = '❌';
+
+        toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideInRight 0.3s ease-out reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
+    // Toggle sharing visibility for a participant
+    function toggleSharing(username) {
+
+    const pc = peers[username];
+
+    if (pc) {
+        // Already connected → Hide them
+        pc.close();
+        delete peers[username];
+
+        showToast(`${username} hidden from screen share.`, 'info');
+
+    } else {
+        // Not connected → Show again
+        createPeerConnection(username);
+
+        showToast(`${username} can now see screen share.`, 'success');
+    }
+}
+
+
+    // Toggle suggestions system
+    function toggleSuggestions() {
+        const checkbox = document.getElementById('suggestionsToggle');
+        const statusText = document.getElementById('suggestionsStatus');
+
+        const formData = new FormData();
+        formData.append('action', 'toggle_suggestions');
+        formData.append('username', 'system'); // dummy
+
+        fetch(`/session/${roomCode}/control/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    statusText.textContent = `Suggestions ${data.is_enabled ? 'ON' : 'OFF'}`;
+                    showToast(`Suggestions system ${data.is_enabled ? 'enabled' : 'disabled'}.`, 'success');
+                } else {
+                    checkbox.checked = !checkbox.checked; // Revert
+                    showToast(data.error || 'Failed to toggle suggestions.', 'error');
+                }
+            })
+            .catch(err => {
+                checkbox.checked = !checkbox.checked;
+                console.error('Toggle error:', err);
+            });
+    }
+
+    // Toggle Session Discoverability
+    function toggleDiscoverability() {
+        const statusText = document.getElementById('discoverabilityStatus');
+        const statusIcon = document.getElementById('discoverabilityIcon');
+        
+        if (!roomCode) {
+            console.error('roomCode not defined');
+            showToast('Error: Room code not found.', 'error');
+            return;
+        }
+fetch(`/session/${roomCode}/toggle-discovery/`, {
+    method: 'POST',
+    headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+    }
+})
+.then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+})
+.then(data => {
+
+    if (data.status === 'ok') {
+
+        const statusIcon = document.getElementById('discoverabilityIcon');
+        const statusText = document.getElementById('discoverabilityStatus');
+
+        if (data.is_discoverable) {
+            statusIcon.textContent = '🌐';
+            statusText.textContent = 'Visible';
+        } else {
+            statusIcon.textContent = '🔒';
+            statusText.textContent = 'Hidden';
+        }
+
+        showToast(data.message, 'success');
+    }
+})
+.catch(err => {
+    console.error("Toggle Error:", err);
+    showToast("Failed to toggle visibility", "error");
+});
+
+    }
+
+    // Helper function to get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Add Mode Toggle
+    let addMode = 'select';
+    function toggleAddMode() {
+        const selectDiv = document.getElementById('selectAddMode');
+        const typeDiv = document.getElementById('typeAddMode');
+        const toggleBtn = document.getElementById('addModeToggle');
+
+        if (addMode === 'select') {
+            selectDiv.style.display = 'none';
+            typeDiv.style.display = 'flex';
+            toggleBtn.textContent = 'Switch to Select';
+            addMode = 'type';
+        } else {
+            selectDiv.style.display = 'flex';
+            typeDiv.style.display = 'none';
+            toggleBtn.textContent = 'Switch to Type';
+            addMode = 'select';
+        }
+    }
+
+    function addParticipantAction(mode) {
+        let username;
+        if (mode === 'select') {
+            username = document.getElementById('discoverableUserSelect').value;
+        } else {
+            username = document.getElementById('addParticipantInput').value.trim();
+        }
+
+        if (!username) {
+            showToast('Please select or type a username.', 'info');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('username', username);
+        formData.append('session_id', "{{ session.id }}");
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/api/invite/`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showToast(`${username} invited successfully! They will see it on their home page.`, 'success');
+                    // Notify others via socket
+                    chatSocket.send(JSON.stringify({
+                        'type': 'participant_update',
+                        'username': username,
+                        'action': 'invited'
+                    }));
+                    // Clear input
+                    if (mode === 'type') document.getElementById('addParticipantInput').value = '';
+                    if (mode === 'select') document.getElementById('discoverableUserSelect').value = '';
+                } else {
+                    showToast(data.error || 'Failed to invite participant.', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Invite error:', err);
+                showToast('A network error occurred.', 'error');
+            });
+    }
+
+    // Copy room code on click
+    document.querySelector('.room-code-badge')?.addEventListener('click', function () {
+        navigator.clipboard.writeText(this.textContent.trim());
+        const original = this.textContent;
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = original; }, 1500);
+    });
+
+    // Chat Logic
+    document.querySelector('#chatMessageInput').focus();
+    document.querySelector('#chatMessageInput').onkeyup = function (e) {
+        if (e.key === 'Enter') { document.querySelector('#chatMessageSend').click(); }
+    };
+    document.querySelector('#chatMessageSend').onclick = function (e) {
+        const input = document.querySelector('#chatMessageInput');
+        if (input.value) {
+            chatSocket.send(JSON.stringify({ 'message': input.value, 'type': 'chat_message' }));
+            input.value = '';
+        }
+    };
+
+    // Audio Logic
+    // Sidebar recording
+    const sidebarRecordBtn = document.getElementById('sidebarRecordBtn');
+    const sidebarTimerText = document.getElementById('sidebarTimerText');
+    if (sidebarRecordBtn && sidebarTimerText) {
+        sidebarRecordBtn.onmousedown = startRecording(sidebarRecordBtn, sidebarTimerText);
+        sidebarRecordBtn.onmouseup = stopRecording(sidebarRecordBtn, sidebarTimerText);
+        sidebarRecordBtn.onmouseleave = stopRecording(sidebarRecordBtn, sidebarTimerText);
+    }
+
+    // Global variables for recording
+    let mediaRecorder;
+    let audioChunks = [];
+    let startTime;
+    let timerInterval;
+
+    function startRecording(btn, timer) {
+        return async function () {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                audioChunks = [];
+
+                startTime = new Date();
+                timer.style.display = "inline";
+                timer.textContent = "00:00";
+                timerInterval = setInterval(() => {
+                    const now = new Date();
+                    const diff = now - startTime;
+                    const seconds = Math.floor(diff / 1000);
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+                    // Update both timers if they exist
+                    const sbTimer = document.getElementById('sidebarTimerText');
+                    const fsTimer = document.getElementById('fsTimerText');
+                    if (sbTimer) sbTimer.textContent = timeStr;
+                    if (fsTimer) fsTimer.textContent = timeStr;
+
+                }, 1000);
+
+                // Update current button
+                btn.textContent = "🔴 Recording...";
+                btn.style.backgroundColor = "#d84315";
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => {
+                        const base64Audio = reader.result;
+                        chatSocket.send(JSON.stringify({
+                            'type': 'audio_message',
+                            'content': base64Audio
+                        }));
+                    };
+                    stream.getTracks().forEach(track => track.stop());
+                };
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                alert("Could not access microphone. Please allow permissions.");
+            }
+        };
+    }
+
+    function stopRecording(btn, timer) {
+        return function () {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            clearInterval(timerInterval);
+
+            const sbTimer = document.getElementById('sidebarTimerText');
+            const fsTimer = document.getElementById('fsTimerText');
+            if (sbTimer) sbTimer.style.display = "none";
+            if (fsTimer) fsTimer.style.display = "none";
+
+            const sbBtn = document.getElementById('sidebarRecordBtn');
+            const fsBtn = document.getElementById('fsRecordBtn');
+            if (sbBtn) {
+                sbBtn.textContent = "🎙️ Hold to Record";
+                sbBtn.style.backgroundColor = "#ff5722";
+            }
+            if (fsBtn) {
+                fsBtn.textContent = "🎙️ Hold to Record";
+                fsBtn.style.backgroundColor = "#ff5722";
+            }
+        };
+    }
+
+    // Attach FS recording
+    const fsRecordBtn = document.getElementById('fsRecordBtn');
+    const fsTimerText = document.getElementById('fsTimerText');
+    if (fsRecordBtn && fsTimerText) {
+        fsRecordBtn.onmousedown = startRecording(fsRecordBtn, fsTimerText);
+        fsRecordBtn.onmouseup = stopRecording(fsRecordBtn, fsTimerText);
+        fsRecordBtn.onmouseleave = stopRecording(fsRecordBtn, fsTimerText);
+
+        // Touch support for mobile/tablets
+        fsRecordBtn.ontouchstart = (e) => { e.preventDefault(); startRecording(fsRecordBtn, fsTimerText)(); };
+        fsRecordBtn.ontouchend = (e) => { e.preventDefault(); stopRecording(fsRecordBtn, fsTimerText)(); };
+    }
+
+    // Notification Logic
+    function showNotification(title, body) {
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+            new Notification(title, { body: body });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification(title, { body: body });
+                }
+            });
+        }
+    }
+
+    // Request permission on load
+    if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+
+    // WebRTC Logic
+    const rtcConfig = {
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    async function startScreenShare() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert("Screen sharing is not supported in this browser or requires a Secure Context (HTTPS or localhost).\n\nIf you are using a local network IP, please use HTTPS or enable the 'unsafely-treat-insecure-origin-as-secure' flag in Chrome.");
+            return;
+        }
+        try {
+            localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+            const videoElement = document.getElementById('remoteVideo');
+            videoElement.srcObject = localStream;
+            videoElement.style.display = 'block';
+            document.getElementById('fullscreenBtn').style.display = 'block';
+            document.getElementById('startShareBtn').style.display = 'none';
+
+            // Detect when host stops sharing via browser controls
+            localStream.getVideoTracks()[0].onended = () => {
+                resetScreenShareUI();
+                // Notify all peers that sharing has stopped
+                Object.keys(peers).forEach(targetUser => {
+                    chatSocket.send(JSON.stringify({
+                        'type': 'signal',
+                        'target': targetUser,
+                        'data': { 'type': 'share_stopped' }
+                    }));
+                });
+            };
+
+            // For now, assume new joiners trigger createPeer.
+            // For existing participants, ideally we'd iterate and createPeerConnection.
+        } catch (err) {
+            console.error("Error sharing screen:", err);
+        }
+    }
+
+    function resetScreenShareUI() {
+        const videoElement = document.getElementById('remoteVideo');
+        videoElement.srcObject = null;
+        videoElement.style.display = 'none';
+        document.getElementById('fullscreenBtn').style.display = 'none';
+        if (isHost) {
+            document.getElementById('startShareBtn').style.display = 'block';
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        // Close all peer connections
+        Object.keys(peers).forEach(user => {
+            peers[user].close();
+            delete peers[user];
+        });
+    }
+
+    function createPeerConnection(targetUser) {
+        if (peers[targetUser]) return;
+
+        const pc = new RTCPeerConnection(rtcConfig);
+        peers[targetUser] = pc;
+
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                showNotification("Connection Alert", `${targetUser} is having connection issues.`);
+            }
+        };
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        pc.onicecandidate = event => {
+            if (event.candidate) {
+                chatSocket.send(JSON.stringify({
+                    'type': 'signal',
+                    'target': targetUser,
+                    'data': { 'type': 'candidate', 'candidate': event.candidate }
+                }));
+            }
+        };
+
+        pc.createOffer()
+            .then(offer => pc.setLocalDescription(offer))
+            .then(() => {
+                chatSocket.send(JSON.stringify({
+                    'type': 'signal',
+                    'target': targetUser,
+                    'data': { 'type': 'offer', 'sdp': pc.localDescription }
+                }));
+            });
+    }
+
+    async function handleSignal(data) {
+        const sender = data.sender;
+        const signal = data.data;
+
+        if (signal.type === 'share_stopped') {
+            resetScreenShareUI();
+            document.getElementById('fullscreenBtn').style.display = 'none';
+            showToast("Host stopped sharing screen.", "info");
+            return;
+        }
+
+        if (signal.type === 'offer') {
+            const pc = new RTCPeerConnection(rtcConfig);
+            peers[sender] = pc;
+
+            pc.ontrack = event => {
+                const videoElement = document.getElementById('remoteVideo');
+                videoElement.srcObject = event.streams[0];
+                videoElement.style.display = 'block';
+                document.getElementById('fullscreenBtn').style.display = 'block';
+            };
+
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    chatSocket.send(JSON.stringify({
+                        'type': 'signal',
+                        'target': sender,
+                        'data': { 'type': 'candidate', 'candidate': event.candidate }
+                    }));
+                }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            chatSocket.send(JSON.stringify({
+                'type': 'signal',
+                'target': sender,
+                'data': { 'type': 'answer', 'sdp': pc.localDescription }
+            }));
+
+        } else if (signal.type === 'answer') {
+            if (peers[sender]) {
+                await peers[sender].setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            }
+        } else if (signal.type === 'candidate') {
+            if (peers[sender]) {
+                await peers[sender].addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        }
+    }
+    function toggleFullscreen() {
+        const target = document.getElementById('videoArea');
+        if (!document.fullscreenElement) {
+            if (target.requestFullscreen) {
+                target.requestFullscreen();
+            } else if (target.webkitRequestFullscreen) {
+                target.webkitRequestFullscreen();
+            } else if (target.msRequestFullscreen) {
+                target.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    function toggleChatFS() {
+        const chat = document.getElementById('fsChatOverlay');
+        if (chat) {
+            chat.classList.toggle('show');
+        }
+    }
+
+    function sendFsMessage() {
+        const input = document.getElementById('fsChatMessageInput');
+        const message = input.value;
+        if (message.trim() !== "") {
+            chatSocket.send(JSON.stringify({
+                'type': 'chat_message',
+                'message': message
+            }));
+            input.value = '';
+        }
+    }
+
+    // Add Enter key listener for FS chat
+    document.addEventListener('DOMContentLoaded', () => {
+        const fsInput = document.getElementById('fsChatMessageInput');
+        if (fsInput) {
+            fsInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendFsMessage();
+                }
+            });
+        }
+    });
+
+    // Handle exiting fullscreen to hide chat overlay
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            const chat = document.getElementById('fsChatOverlay');
+            if (chat) chat.classList.remove('show');
+        }
+    });
+</script>
+{% endblock %}

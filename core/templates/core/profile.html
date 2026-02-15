@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+
+{% block title %}ScreenDial - Profile{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 550px; margin: 0 auto;">
+    <h2 style="border: none; margin-bottom: 0.5rem; font-weight: 800;">Profile Settings</h2>
+    <p style="opacity: 0.6; margin-bottom: 2rem;">Manage your ScreenDial account and privacy</p>
+
+    {% if success %}
+    <div style="background-color: #4caf50; color: white; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+        {{ success }}
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                <input type="checkbox" name="is_discoverable" {% if user.profile.is_discoverable %}checked{% endif %}
+                    style="width: auto;">
+                <div>
+                    <strong>Discoverable</strong>
+                    <div style="font-size: 0.85rem; color: #aaa;">Allow hosts to find you by username when adding
+                        participants to a session.</div>
+                </div>
+            </label>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn">Save Changes</button>
+            <a href="{% url 'index' %}" class="btn" style="background-color: #444; flex: 1; text-align: center;">Back to
+                Home</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,491 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}ScreenDial - Home{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center;">
+    {% if user.is_authenticated %}
+    <div class="container" style="flex: 1; min-width: 300px;">
+        <h2>Create Session</h2>
+        <p>Start a new meeting as a host.</p>
+        <form action="{% url 'create_session' %}" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="max_participants">Max Participants:</label>
+                <input type="number" id="max_participants" name="max_participants" value="10" min="1" max="100">
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem;">
+                <input type="checkbox" id="suggestions_enabled" name="suggestions_enabled" checked style="width: auto;">
+                <label for="suggestions_enabled" style="margin-bottom: 0; font-size: 0.9rem; opacity: 0.8;">Enable Smart
+                    Suggestions</label>
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Start Meeting</button>
+        </form>
+    </div>
+
+    <div class="container" style="flex: 1; min-width: 300px;">
+        <h2>Join Session</h2>
+        <p>Enter an 8-digit room code to join an existing meeting.</p>
+        <form action="{% url 'join_session' %}" method="post">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="room_code">Room Code:</label>
+                <input type="text" id="room_code" name="room_code" placeholder="e.g. 12345678" maxlength="8"
+                    pattern="\d{8}" title="Enter an 8-digit code" required
+                    style="font-family: monospace; letter-spacing: 2px; text-align: center; font-size: 1.2rem;">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; background: var(--secondary-color); color: #000;">Join
+                Meeting</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="container" style="text-align: center;">
+        <h2>Welcome to ScreenDial</h2>
+        <p>Your premium screen-centric conferencing platform.</p>
+        <p>Please <a href="{% url 'login' %}" style="color: var(--secondary-color);">Login</a> or <a
+                href="{% url 'register' %}" style="color: var(--secondary-color);">Register</a> to start.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if hosted_sessions %}
+<div class="container" style="margin-top: 2rem;">
+    <h2>My Active Sessions</h2>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+            <thead>
+                <tr style="text-align: left; color: #888; font-size: 0.8rem; text-transform: uppercase;">
+                    <th style="padding: 1rem;">Room Code</th>
+                    <th style="padding: 1rem;">Created</th>
+                    <th style="padding: 1rem;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in hosted_sessions %}
+                <tr style="border-top: 1px solid var(--border-color);">
+                    <td style="padding: 1rem;">
+                        <a href="{% url 'session_room' session.room_code %}"
+                            style="color: var(--secondary-color); font-weight: 600; font-family: monospace;">
+                            {{ session.room_code }}</a>
+                    </td>
+                    <td style="padding: 1rem; font-size: 0.9rem; opacity: 0.8;">{{ session.created_at|date:"M d, H:i" }}
+                    </td>
+                    <td style="padding: 1rem;">
+                        <a href="{% url 'session_room' session.room_code %}" class="btn-sm"
+                            style="background: var(--primary-color); text-decoration: none; display: inline-block; font-weight: 500;padding: 0.5rem;border-radius: 4px;">Enter</a>
+                        <form action="{% url 'delete_session' session.room_code %}" method="post"
+                            style="display: inline;" onsubmit="return confirm('Archive this session?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-sm"
+                                style="background: #f44336; border: none; font-weight: 600;padding: 0.5rem;border-radius: 4px;">End</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if joined_sessions %}
+<div class="container" style="margin-top: 1.5rem;">
+
+    <h2 style="margin-bottom: 0.5rem;">Sessions I Joined</h2>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+
+            <thead>
+                <tr style="text-align: left; color: #888; font-size: 0.8rem; text-transform: uppercase;">
+                    <th style="padding: 1rem;">Room Code</th>
+                    <th style="padding: 1rem;">Host</th>
+                    <th style="padding: 1rem;">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for session in joined_sessions %}
+                <tr style="border-top: 1px solid var(--border-color);">
+
+                    <td style="padding: 1rem;">
+                        <a href="{% url 'session_room' session.room_code %}"
+                            style="color: var(--secondary-color); font-weight: 600; font-family: monospace;">
+                            {{ session.room_code }}
+                        </a>
+                    </td>
+
+                    <td style="padding: 1rem; font-size: 0.9rem; opacity: 0.8;">
+                        {{ session.host.username }}
+                    </td>
+
+                    <td style="padding: 1rem;">
+                        <a href="{% url 'session_room' session.room_code %}"
+                            class="btn-sm"
+                            style="background-color: aliceblue; text-decoration: none; display: inline-block; font-weight: 500; padding: 0.5rem; border-radius: 4px;">
+                            Rejoin
+                        </a>
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if user.is_authenticated %}
+<!-- AVAILABLE SESSIONS SECTION -->
+<div class="container" style="margin-top: 2rem;">
+    <h2>🌐 Available Sessions</h2>
+    <div id="availableSessionsList" style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+        <p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem; grid-column: 1/-1; margin: 0;">
+            Loading available sessions...
+        </p>
+    </div>
+</div>
+
+<!-- INVITATIONS SECTION -->
+<div class="container" style="margin-top: 2rem;">
+    <h2>📬 Pending Invitations</h2>
+    <div id="invitationsList" style="margin-top: 1rem;">
+        <p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem 0; margin: 0;">
+            Checking for invitations...
+        </p>
+    </div>
+</div>
+
+<style>
+    .available-session-card {
+        background: rgba(16,185,129,0.1);
+        border: 1px solid rgba(16,185,129,0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .available-session-card h4 {
+        margin: 0;
+        font-size: 1rem;
+        color: #fff;
+    }
+
+    .session-details p {
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.7);
+    }
+
+    .session-details strong {
+        color: #10b981;
+    }
+
+    .session-room-code {
+        background: rgba(0,0,0,0.3);
+        padding: 0.75rem;
+        border-radius: 8px;
+        font-family: monospace;
+        font-weight: 600;
+        text-align: center;
+        font-size: 1.1rem;
+        letter-spacing: 2px;
+        color: #10b981;
+    }
+
+    .btn-join-session {
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-join-session:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16,185,129,0.4);
+    }
+    .invitation-card {
+        background: rgba(139,92,246,0.1);
+        border: 1px solid rgba(139,92,246,0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .invitation-info {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .invitation-info h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        color: #fff;
+    }
+
+    .invitation-info p {
+        margin: 0.25rem 0;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.7);
+    }
+
+    .invitation-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-invite-accept {
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .btn-invite-accept:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16,185,129,0.4);
+    }
+
+    .btn-invite-reject {
+        padding: 0.75rem 1.5rem;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: transform 0.2s, background 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .btn-invite-reject:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-2px);
+    }
+
+    .no-invitations-msg {
+        text-align: center;
+        color: rgba(255,255,255,0.6);
+        padding: 2rem;
+        margin: 0;
+    }
+</style>
+
+<script src="{% static 'core/js/requests.js' %}"></script>
+<script>
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Display invitations and start polling
+    function loadAndDisplayInvitations() {
+        fetch('/api/my-invitations/', {
+            method: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Invitations data:', data);
+            const container = document.getElementById('invitationsList');
+            
+            if (data.status === 'ok' && data.invitations && data.invitations.length > 0) {
+                container.innerHTML = data.invitations.map(invite => `
+                    <div class="invitation-card">
+                        <div class="invitation-info">
+                            <h4>🎉 Invited to Session</h4>
+                            <p><strong>Host:</strong> ${invite.session__host__username}</p>
+                            <p><strong>Room Code:</strong> <code style="background: rgba(0,0,0,0.3); padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace; font-weight: 600;">${invite.session__room_code}</code></p>
+                            <p style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">Invited: ${new Date(invite.joined_at).toLocaleString()}</p>
+                        </div>
+                        <div class="invitation-actions">
+                            <button class="btn-invite-accept" onclick="respondToInvitationFromCard(${invite.session__id}, 'accepted')">
+                                ✓ Accept
+                            </button>
+                            <button class="btn-invite-reject" onclick="respondToInvitationFromCard(${invite.session__id}, 'rejected')">
+                                ✗ Reject
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="no-invitations-msg">No pending invitations</p>';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading invitations:', err);
+            const container = document.getElementById('invitationsList');
+            container.innerHTML = `<p class="no-invitations-msg">Error loading invitations: ${err.message}</p>`;
+        });
+    }
+
+    // Custom handler for accept/reject from card
+    function respondToInvitationFromCard(sessionId, action) {
+        const formData = new FormData();
+        formData.append('session_id', sessionId);
+        formData.append('action', action);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+        fetch('/api/respond-invite/', {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'ok') {
+                const message = action === 'accepted' 
+                    ? '✓ Invitation accepted! Redirecting...' 
+                    : '✗ Invitation rejected.';
+                showNotification(message, action === 'accepted' ? 'success' : 'info');
+                
+                if (action === 'accepted') {
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    loadAndDisplayInvitations(); // Reload the list
+                }
+            } else {
+                showNotification(data.error || 'Error processing invitation', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showNotification('Failed to process invitation: ' + err.message, 'error');
+        });
+    }
+
+    // Load and display available sessions
+    function loadAvailableSessions() {
+        fetch('/api/available-sessions/', {
+            method: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Available sessions:', data);
+            const container = document.getElementById('availableSessionsList');
+            
+            if (data.status === 'ok' && data.sessions && data.sessions.length > 0) {
+                container.innerHTML = data.sessions.map(session => `
+                    <div class="available-session-card">
+                        <h4>Host: ${session.host__username}</h4>
+                        <div class="session-details">
+                            <div class="session-room-code">${session.room_code}</div>
+                            <p><strong>Participants:</strong> ${session.participant_count}/${session.max_participants}</p>
+                            <p><strong>Created:</strong> ${new Date(session.created_at).toLocaleString()}</p>
+                        </div>
+                        <button class="btn-join-session" onclick="quickJoinSession('${session.room_code}')">
+                            Join Session
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem; grid-column: 1/-1; margin: 0;">No available sessions at the moment</p>';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading available sessions:', err);
+            const container = document.getElementById('availableSessionsList');
+            container.innerHTML = `<p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem; grid-column: 1/-1; margin: 0;">Error loading sessions: ${err.message}</p>`;
+        });
+    }
+
+    // Quick join a session
+    function quickJoinSession(roomCode) {
+        const formData = new FormData();
+        formData.append('room_code', roomCode);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+        fetch('/api/join-with-code/', {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                showNotification('Join request submitted! Waiting for host approval...', 'success');
+                setTimeout(() => {
+                    window.location.href = `/session/${roomCode}/waiting/`;
+                }, 1500);
+            } else {
+                showNotification(data.error || 'Failed to join session', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Join error:', err);
+            showNotification('Error joining session', 'error');
+        });
+    }
+
+    // Load invitations when page loads
+    window.addEventListener('load', () => {
+        console.log('Page loaded, fetching invitations and sessions...');
+        loadAndDisplayInvitations();
+        loadAvailableSessions();
+        
+        // Refresh every 5 seconds
+        setInterval(loadAndDisplayInvitations, 5000);
+        setInterval(loadAvailableSessions, 10000);
+    });
+</script>
+{% endif %}
+
+<div style="text-align: center; margin-top: 2rem; color: #888; font-size: 0.9rem;">
+    Your status: <strong>{% if user.profile.is_discoverable %}Discoverable{% else %}Hidden{% endif %}</strong>
+    | <a href="{% url 'profile' %}" style="color: var(--primary-color);">Edit Profile</a>
+</div>
+
+{% if error %}
+<div
+    style="background-color: #cf6679; color: black; padding: 1rem; border-radius: 4px; margin-top: 1rem; text-align: center;">
+    {{ error }}
+</div>
+{% endif %}
+{% endblock %}

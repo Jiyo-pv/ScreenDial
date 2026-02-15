@@ -1,0 +1,28 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Register - ScreenDial{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 450px; margin: 4rem auto; text-align: center;">
+    <h2 style="border: none; margin-bottom: 0.5rem; font-weight: 800;">Join ScreenDial</h2>
+    <p style="opacity: 0.6; margin-bottom: 2rem;">Create an account to start hosting</p>
+    <form method="post" style="text-align: left;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+            <small style="color: #aaa; display: block;">{{ field.help_text }}</small>
+            {% endif %}
+            {% for error in field.errors %}
+            <div style="color: #cf6679; font-size: 0.9rem;">{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn">Register</button>
+    </form>
+    <p style="margin-top: 1rem;">Already have an account? <a href="{% url 'login' %}"
+            style="color: var(--secondary-color);">Login here</a>.</p>
+</div>
+{% endblock %}

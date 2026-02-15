@@ -1,0 +1,208 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Waiting Room - ScreenDial{% endblock %}
+
+{% block content %}
+<style>
+    .waiting-room-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: calc(100vh - 80px);
+        padding: 2rem;
+    }
+
+    .waiting-card {
+        background: rgba(30, 41, 59, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 3rem;
+        text-align: center;
+        max-width: 500px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    }
+
+    .waiting-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 2rem;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+    }
+
+    .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #8b5cf6;
+        border-radius: 50%;
+        width: 100%;
+        height: 100%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .waiting-text h2 {
+        margin: 0 0 1rem 0;
+        font-size: 1.5rem;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .waiting-text p {
+        color: rgba(255, 255, 255, 0.7);
+        margin: 0.5rem 0;
+        font-size: 0.95rem;
+    }
+
+    .session-info {
+        background: rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        text-align: left;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.75rem 0;
+        font-size: 0.9rem;
+    }
+
+    .info-label {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .info-value {
+        color: #8b5cf6;
+        font-weight: 600;
+    }
+
+    .status-badge {
+        display: inline-block;
+        background: rgba(251, 191, 36, 0.2);
+        border: 1px solid rgba(251, 191, 36, 0.5);
+        color: #fbbf24;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-top: 1rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+</style>
+
+<div class="waiting-room-container">
+    <div class="waiting-card">
+        <div class="waiting-icon">
+            <div class="spinner"></div>
+        </div>
+
+        <div class="waiting-text">
+            <h2>Waiting for Approval</h2>
+            <p>Your request to join this session is pending</p>
+        </div>
+
+        <div class="session-info">
+            <div class="info-item">
+                <span class="info-label">Session Code:</span>
+                <span class="info-value">{{ room_code }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Host:</span>
+                <span class="info-value">{{ session.host.username }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Your Name:</span>
+                <span class="info-value">{{ participant.display_name }}</span>
+            </div>
+        </div>
+
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; margin: 1.5rem 0;">
+            The host will review your request and either accept or deny it. Please wait...
+        </p>
+
+        <span class="status-badge">⏳ Pending Approval</span>
+
+        <div class="action-buttons">
+            <a href="{% url 'index' %}" class="btn btn-secondary">Return to Home</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Poll for status changes every 2 seconds
+    (function pollStatus() {
+        const sessionCode = '{{ room_code }}';
+        
+        fetch(`/session/${sessionCode}/check-status/`, {
+            method: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'accepted') {
+                window.location.href = `/session/${sessionCode}/`;
+            } else if (data.status === 'rejected') {
+                alert('Your join request was rejected by the host.');
+                window.location.href = '/';
+            }
+        })
+        .catch(err => console.log('Status check failed:', err));
+
+        setTimeout(pollStatus, 2000);
+    })();
+</script>
+{% endblock %}
